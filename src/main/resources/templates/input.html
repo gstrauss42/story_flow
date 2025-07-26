@@ -128,26 +128,45 @@
             font-size: 14px;
             flex-shrink: 0;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+            background: #f3f4f6;
         }
         
+        .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* Fallback avatar colors if images don't load */
         .avatar.expert {
             background: linear-gradient(135deg, #6366f1, #4f46e5);
-            color: white;
         }
         
         .avatar.estimator {
             background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-            color: white;
         }
         
         .avatar.security {
             background: linear-gradient(135deg, #ef4444, #dc2626);
-            color: white;
         }
         
         .avatar.system {
             background: linear-gradient(135deg, #6b7280, #4b5563);
+        }
+        
+        .avatar-letter {
             color: white;
+            display: none;
+        }
+        
+        /* Show letter if image fails to load */
+        .avatar.image-error .avatar-letter {
+            display: block;
+        }
+        
+        .avatar.image-error img {
+            display: none;
         }
         
         /* Messages */
@@ -441,6 +460,14 @@
         let stompClient = null;
         let lastMessageGroup = {};
         
+        // Map agent types to their image paths
+        const agentImages = {
+            'expert': '/images/work_breakdown.jpeg',
+            'estimator': '/images/story_point.jpeg',
+            'security': '/images/security.jpeg',
+            'system': '/images/system.jpeg'
+        };
+        
         // Connect to WebSocket
         function connectWebSocket() {
             const socket = new SockJS('/ws');
@@ -512,12 +539,23 @@
             }
         }
         
+        function createAvatar(type, initial) {
+            const imagePath = agentImages[type];
+            const avatarHtml = `
+                <div class="avatar ${type}">
+                    <img src="${imagePath}" alt="${type} agent" onerror="this.parentElement.classList.add('image-error')">
+                    <span class="avatar-letter">${initial}</span>
+                </div>
+            `;
+            return avatarHtml;
+        }
+        
         function addSystemMessage(content) {
             const messageGroup = document.createElement('div');
             messageGroup.className = 'message-group system';
             
             messageGroup.innerHTML = `
-                <div class="avatar system">S</div>
+                ${createAvatar('system', 'S')}
                 <div class="message-wrapper">
                     <div class="message-header">
                         <span class="agent-name">System</span>
@@ -541,7 +579,7 @@
             const processingClass = isAlert ? 'security-alert' : 'security';
             
             messageGroup.innerHTML = `
-                <div class="avatar security">S</div>
+                ${createAvatar('security', 'S')}
                 <div class="message-wrapper">
                     <div class="message-header">
                         <span class="agent-name">Security Agent</span>
@@ -568,7 +606,7 @@
             const avatarInitial = name.charAt(0).toUpperCase();
             
             messageGroup.innerHTML = `
-                <div class="avatar ${type}">${avatarInitial}</div>
+                ${createAvatar(type, avatarInitial)}
                 <div class="message-wrapper">
                     <div class="message-header">
                         <span class="agent-name">${name}</span>
