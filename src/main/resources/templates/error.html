@@ -1,0 +1,22 @@
+<!-- src/main/resources/templates/error.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Error</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f8f8f8; color: #333; text-align: center; padding: 50px; }
+        .error-container { background: #fff; padding: 30px; border-radius: 8px; display: inline-block; box-shadow: 0 2px 8px rgba(0,0,0,0.1);}
+        h1 { color: #e74c3c; }
+        p { margin: 20px 0; }
+    </style>
+</head>
+<body>
+<div class="error-container">
+    <h1>Oops! Something went wrong.</h1>
+    <p>Status: <span th:text="${status}">Unknown</span></p>
+    <p th:text="${error}">Error</p>
+    <p th:text="${message}">An unexpected error occurred. Please try again later.</p>
+</div>
+</body>
+</html>
