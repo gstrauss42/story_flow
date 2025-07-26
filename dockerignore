@@ -1,0 +1,39 @@
+# Gradle build files
+.gradle/
+build/
+!build/libs/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Other
+node_modules/
+npm-debug.log*
