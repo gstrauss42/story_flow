@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.SessionAttribute;
 
+import hackathon.hackathon2025.agents.SecurityAgent;
 import hackathon.hackathon2025.agents.StoryPointAgent;
 import hackathon.hackathon2025.agents.WorkBreakdownAgent;
 import jakarta.annotation.Resource;
@@ -33,6 +34,9 @@ public class AgentController {
     
     @Resource(name = "workBreakdownAgent")
     private WorkBreakdownAgent workBreakdownAgent;
+
+    @Resource(name = "securityAgent")
+    private SecurityAgent securityAgent;
     
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -65,6 +69,26 @@ public class AgentController {
         
         // Small delay for UI effect
         sleep(500);
+
+        String securityAgentReply = securityAgent.communicate(message);
+        if(Boolean.valueOf(securityAgentReply)) {
+            broadcast("security_expert", Map.of(
+                    "processing", Map.of(
+                            "header", "security issue found",
+                            "content", "Issue #" + issueNumber + "\nParsing: \"" + issueTitle + "\"\nSecurity issue detected!\nPlease review the issue and take necessary actions."
+                    )
+            ));
+            Map<String, Object> response = new HashMap<>();
+            return ResponseEntity.ok(response);
+        }
+        else {
+            broadcast("security_expert", Map.of(
+                    "processing", Map.of(
+                            "header", "no security issues detected ",
+                            "content", "Issue #" + issueNumber + "\nParsing: \"" + issueTitle + "\"\nNo security issues detected.\nProceeding with estimation."
+                    )
+            ));
+        }
         
         // Broadcast: Expert thinking
         broadcast("expert_thinking", null);
@@ -106,6 +130,7 @@ public class AgentController {
         
         // Get estimation
         String storyPointAgentReply = storyPointAgent.communicateWithExpert(message, workBreakdownAgentReply);
+
         int storyPoints = extractStoryPoints(storyPointAgentReply);
 
         sleep(1500);
