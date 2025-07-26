@@ -6,6 +6,10 @@ on:
   issue_comment:
     types: [created]
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
   estimate-story-points:
     runs-on: ubuntu-latest
@@ -39,71 +43,80 @@ jobs:
         issue_title = """${{ github.event.issue.title }}"""
         issue_body = """${{ github.event.issue.body }}"""
         
-        # Call your AI API
-        headers = {
-            "Authorization": f"Bearer {os.environ.get('AI_API_KEY', '')}",
-            "Content-Type": "application/json"
-        }
-        
-        payload = {
-            "query": f"""
-            Analyze this GitHub issue and estimate story points:
-            
-            Title: {issue_title}
-            Description: {issue_body}
-            
-            Provide:
-            1. Story points (use Fibonacci: 1, 2, 3, 5, 8, 13, 21)
-            2. Brief explanation of the estimate
-            3. Key factors considered
-            
-            Respond with a JSON object containing: story_points, explanation, factors
-            """,
-            "user_id": "github-action",
-            "priority": "high"
-        }
-        
-        try:
-            # Call your deployed AI API
-            response = requests.post(
-                f"{os.environ['AI_API_URL']}/query",
-                json=payload,
-                headers=headers,
-                timeout=30
-            )
-            response.raise_for_status()
-            
-            # Extract story points from response
-            ai_response = response.json()
-            response_text = ai_response.get('response', '')
-            
-            # Simple extraction - adjust based on your AI's response format
-            import re
-            points_match = re.search(r'"story_points":\s*(\d+)', response_text)
-            if not points_match:
-                points_match = re.search(r'(\d+)\s*story\s*points?', response_text, re.IGNORECASE)
-            
-            story_points = int(points_match.group(1)) if points_match else 5
-            
-            # Ensure Fibonacci
-            fibonacci = [1, 2, 3, 5, 8, 13, 21]
-            story_points = min(fibonacci, key=lambda x: abs(x - story_points))
-            
-            # Save results
-            result = {
-                "story_points": story_points,
-                "explanation": response_text[:1000],  # Truncate long responses
-                "confidence": ai_response.get('confidence_score', 0.7)
-            }
-            
-        except Exception as e:
-            print(f"Error calling AI API: {e}")
-            # Fallback estimation
+        # MOCK RESPONSE FOR TESTING (remove when API is ready)
+        if not os.environ.get('AI_API_URL'):
+            print("Using mock response - no AI_API_URL set")
             result = {
                 "story_points": 5,
-                "explanation": "Could not reach AI API. Using default estimate.",
-                "confidence": 0.3
+                "explanation": "This is a mock estimation. Set AI_API_URL secret to use real AI.",
+                "confidence": 0.5
             }
+        else:
+            # Call your AI API
+            headers = {
+                "Authorization": f"Bearer {os.environ.get('AI_API_KEY', '')}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "query": f"""
+                Analyze this GitHub issue and estimate story points:
+                
+                Title: {issue_title}
+                Description: {issue_body}
+                
+                Provide:
+                1. Story points (use Fibonacci: 1, 2, 3, 5, 8, 13, 21)
+                2. Brief explanation of the estimate
+                3. Key factors considered
+                
+                Respond with a JSON object containing: story_points, explanation, factors
+                """,
+                "user_id": "github-action",
+                "priority": "high"
+            }
+            
+            try:
+                # Call your deployed AI API
+                response = requests.post(
+                    f"{os.environ['AI_API_URL']}/query",
+                    json=payload,
+                    headers=headers,
+                    timeout=30
+                )
+                response.raise_for_status()
+                
+                # Extract story points from response
+                ai_response = response.json()
+                response_text = ai_response.get('response', '')
+                
+                # Simple extraction - adjust based on your AI's response format
+                import re
+                points_match = re.search(r'"story_points":\s*(\d+)', response_text)
+                if not points_match:
+                    points_match = re.search(r'(\d+)\s*story\s*points?', response_text, re.IGNORECASE)
+                
+                story_points = int(points_match.group(1)) if points_match else 5
+                
+                # Ensure Fibonacci
+                fibonacci = [1, 2, 3, 5, 8, 13, 21]
+                story_points = min(fibonacci, key=lambda x: abs(x - story_points))
+                
+                # Save results
+                result = {
+                    "story_points": story_points,
+                    "explanation": response_text[:1000],  # Truncate long responses
+                    "confidence": ai_response.get('confidence_score', 0.7)
+                }
+                
+            except Exception as e:
+                print(f"Error calling AI API: {e}")
+                # Fallback estimation
+                result = {
+                    "story_points": 5,
+                    "explanation": "Could not reach AI API. Using default estimate.",
+                    "confidence": 0.3
+                }
         
         # Output for next steps
         print(f"STORY_POINTS={result['story_points']}")
