@@ -570,69 +570,203 @@
         }
         
         function formatAgentMessage(content) {
-            // Parse task lists with ### markers
-            let formatted = content;
+            // First, let's understand the structure:
+            // The agent uses #### for phase headers and numbered lists for tasks
             
-            // Replace ### with task numbers and format task blocks
-            const taskRegex = /###\s*(\d+)\.\s*([^#\n]+)([\s\S]*?)(?=###|\n\n|$)/g;
-            const tasks = [];
+            // Split by phases
+            const phasePattern = /####\s+([^#\n]+)/g;
+            const phases = [];
+            let lastIndex = 0;
             let match;
             
-            while ((match = taskRegex.exec(content)) !== null) {
-                const taskNumber = match[1];
-                const taskTitle = match[2].trim();
-                const taskContent = match[3].trim();
-                
-                // Extract task details and dependencies
-                const taskParts = taskContent.split('**Dependency**');
-                const taskDescription = taskParts[0].replace(/\*\*/g, '').replace(/\*/g, '').trim();
-                const dependency = taskParts[1] ? taskParts[1].replace(/\*\*/g, '').replace(/\*/g, '').trim() : '';
-                
-                tasks.push({
-                    number: taskNumber,
-                    title: taskTitle,
-                    description: taskDescription,
-                    dependency: dependency
+            // Find all phase headers
+            while ((match = phasePattern.exec(content)) !== null) {
+                if (lastIndex > 0) {
+                    phases.push({
+                        content: content.substring(lastIndex, match.index)
+                    });
+                }
+                lastIndex = match.index;
+            }
+            if (lastIndex > 0) {
+                phases.push({
+                    content: content.substring(lastIndex)
                 });
             }
             
-            // If we found tasks, format them nicely
-            if (tasks.length > 0) {
-                // Get the intro text before the first task
-                const introMatch = content.match(/^([\s\S]*?)(?=###)/);
-                const intro = introMatch ? `<p>${introMatch[1].trim()}</p>` : '';
+            // If no phases found, try a different approach
+            if (phases.length === 0) {
+                // Parse numbered tasks directly
+                let formatted = content;
                 
-                let taskListHtml = '<div class="task-list">';
-                tasks.forEach(task => {
-                    taskListHtml += `
-                        <div class="task-item">
-                            <div class="task-title">
-                                <span class="task-number">${task.number}.</span>
-                                ${task.title}
+                // Get intro text
+                const introEnd = content.indexOf('1.');
+                const intro = introEnd > 0 ? content.substring(0, introEnd).trim() : '';
+                
+                // Parse tasks - looking for pattern: "1. **TaskName**"
+                const taskPattern = /(\d+)\.\s*\*\*([^*]+)\*\*([^0-9]+?)(?=\d+\.|$)/gs;
+                const tasks = [];
+                
+                while ((match = taskPattern.exec(content)) !== null) {
+                    const taskNumber = match[1];
+                    const taskTitle = match[2].trim();
+                    const taskContent = match[3].trim();
+                    
+                    // Parse task content for Description, Dependency, Estimate
+                    const descMatch = taskContent.match(/\*Description:\*\s*([^*]+?)(?=\*|$)/);
+                    const depMatch = taskContent.match(/\*Dependency:\*\s*([^*]+?)(?=\*|$)/);
+                    const estMatch = taskContent.match(/\*Estimate:\*\s*([^*]+?)(?=\d+\.|####|$)/);
+                    
+                    tasks.push({
+                        number: taskNumber,
+                        title: taskTitle,
+                        description: descMatch ? descMatch[1].trim() : '',
+                        dependency: depMatch ? depMatch[1].trim() : '',
+                        estimate: estMatch ? estMatch[1].trim() : ''
+                    });
+                }
+                
+                // Build formatted HTML
+                let html = intro ? `<p>${intro}</p>` : '';
+                
+                if (tasks.length > 0) {
+                    // Group tasks by phase if phases are mentioned in the content
+                    const analysisPhase = content.indexOf('Analysis Phase') > -1;
+                    const devPhase = content.indexOf('Development Phase') > -1;
+                    const completionPhase = content.indexOf('Completion Phase') > -1;
+                    
+                    if (analysisPhase || devPhase || completionPhase) {
+                        html += '<div class="phase-container">';
+                        
+                        // Add phase sections
+                        const phaseStarts = [];
+                        if (content.includes('Analysis Phase')) {
+                            phaseStarts.push({ name: 'Analysis Phase', index: content.indexOf('Analysis Phase') });
+                        }
+                        if (content.includes('Development Phase')) {
+                            phaseStarts.push({ name: 'Development Phase', index: content.indexOf('Development Phase') });
+                        }
+                        if (content.includes('Completion Phase')) {
+                            phaseStarts.push({ name: 'Completion Phase', index: content.indexOf('Completion Phase') });
+                        }
+                        
+                        phaseStarts.sort((a, b) => a.index - b.index);
+                        
+                        phaseStarts.forEach((phase, idx) => {
+                            html += `<h4 style="color: #4b5563; margin-top: 16px; margin-bottom: 12px; font-size: 16px;">${phase.name}</h4>`;
+                            html += '<div class="task-list">';
+                            
+                            // Find tasks for this phase
+                            const nextPhaseIndex = idx < phaseStarts.length - 1 ? phaseStarts[idx + 1].index : content.length;
+                            const phaseTasks = tasks.filter(task => {
+                                const taskIndex = content.indexOf(`${task.number}. **${task.title}**`);
+                                return taskIndex > phase.index && taskIndex < nextPhaseIndex;
+                            });
+                            
+                            phaseTasks.forEach(task => {
+                                html += `
+                                    <div class="task-item">
+                                        <div class="task-title">
+                                            <span class="task-number">${task.number}.</span>
+                                            ${task.title}
+                                        </div>
+                                        ${task.description ? `<div class="task-description"><strong>Description:</strong> ${task.description}</div>` : ''}
+                                        ${task.dependency ? `<div class="task-dependency">⚠️ <strong>Dependency:</strong> ${task.dependency}</div>` : ''}
+                                        ${task.estimate ? `<div class="task-description" style="color: #6366f1;"><strong>Estimate:</strong> ${task.estimate}</div>` : ''}
+                                    </div>
+                                `;
+                            });
+                            
+                            html += '</div>';
+                        });
+                        
+                        html += '</div>';
+                    } else {
+                        // No phases, just list tasks
+                        html += '<div class="task-list">';
+                        tasks.forEach(task => {
+                            html += `
+                                <div class="task-item">
+                                    <div class="task-title">
+                                        <span class="task-number">${task.number}.</span>
+                                        ${task.title}
+                                    </div>
+                                    ${task.description ? `<div class="task-description"><strong>Description:</strong> ${task.description}</div>` : ''}
+                                    ${task.dependency ? `<div class="task-dependency">⚠️ <strong>Dependency:</strong> ${task.dependency}</div>` : ''}
+                                    ${task.estimate ? `<div class="task-description" style="color: #6366f1;"><strong>Estimate:</strong> ${task.estimate}</div>` : ''}
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    }
+                }
+                
+                // Add any remaining content (like total estimate)
+                const totalMatch = content.match(/Total Story Points:[^0-9]*(\d+)/i);
+                if (totalMatch) {
+                    const remainingContent = content.substring(content.lastIndexOf('Total'));
+                    html += `<div style="margin-top: 20px; padding: 16px; background: #f3f4f6; border-radius: 8px;">
+                        <p style="font-weight: 600; color: #1f2937; margin-bottom: 8px;">Summary</p>
+                        <p>${remainingContent.replace(/\*\*/g, '').replace(/\n/g, '<br>')}</p>
+                    </div>`;
+                }
+                
+                return html;
+            }
+            
+            // If we have phases, format differently
+            let html = '';
+            phases.forEach(phase => {
+                const phaseContent = phase.content;
+                const phaseMatch = phaseContent.match(/####\s+(.+)/);
+                if (phaseMatch) {
+                    const phaseName = phaseMatch[1].trim();
+                    html += `<h4 style="color: #4b5563; margin-top: 16px; margin-bottom: 12px;">${phaseName}</h4>`;
+                }
+                
+                // Parse tasks in this phase
+                const taskPattern = /(\d+)\.\s*\*\*([^*]+)\*\*([^0-9]+?)(?=\d+\.|$)/gs;
+                const tasks = [];
+                let match;
+                
+                while ((match = taskPattern.exec(phaseContent)) !== null) {
+                    const taskNumber = match[1];
+                    const taskTitle = match[2].trim();
+                    const taskContent = match[3].trim();
+                    
+                    const descMatch = taskContent.match(/\*Description:\*\s*([^*]+?)(?=\*|$)/);
+                    const depMatch = taskContent.match(/\*Dependency:\*\s*([^*]+?)(?=\*|$)/);
+                    const estMatch = taskContent.match(/\*Estimate:\*\s*([^*]+?)(?=\d+\.|$)/);
+                    
+                    tasks.push({
+                        number: taskNumber,
+                        title: taskTitle,
+                        description: descMatch ? descMatch[1].trim() : '',
+                        dependency: depMatch ? depMatch[1].trim() : '',
+                        estimate: estMatch ? estMatch[1].trim() : ''
+                    });
+                }
+                
+                if (tasks.length > 0) {
+                    html += '<div class="task-list">';
+                    tasks.forEach(task => {
+                        html += `
+                            <div class="task-item">
+                                <div class="task-title">
+                                    <span class="task-number">${task.number}.</span>
+                                    ${task.title}
+                                </div>
+                                ${task.description ? `<div class="task-description"><strong>Description:</strong> ${task.description}</div>` : ''}
+                                ${task.dependency ? `<div class="task-dependency">⚠️ <strong>Dependency:</strong> ${task.dependency}</div>` : ''}
+                                ${task.estimate ? `<div class="task-description" style="color: #6366f1;"><strong>Estimate:</strong> ${task.estimate}</div>` : ''}
                             </div>
-                            ${task.description ? `<div class="task-description">${task.description}</div>` : ''}
-                            ${task.dependency ? `<div class="task-dependency">⚠️ Dependency: ${task.dependency}</div>` : ''}
-                        </div>
-                    `;
-                });
-                taskListHtml += '</div>';
-                
-                formatted = intro + taskListHtml;
-            } else {
-                // For non-task content, just format paragraphs
-                formatted = content
-                    .split('\n\n')
-                    .map(paragraph => `<p>${paragraph.trim()}</p>`)
-                    .join('');
-            }
+                        `;
+                    });
+                    html += '</div>';
+                }
+            });
             
-            // Handle remaining markdown-style formatting
-            formatted = formatted
-                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-                .replace(/`([^`]+)`/g, '<code>$1</code>');
-            
-            return formatted;
+            return html || `<p>${content}</p>`;
         }
         
         function createEstimationResult(estimation) {
