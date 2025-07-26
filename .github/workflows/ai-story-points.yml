@@ -53,7 +53,7 @@ jobs:
         try:
             # Call your API endpoint
             response = requests.post(
-                "https://story-flow.onrender.com/api/estimate",
+                "https://story-flow.onrender.com/agents/estimate",
                 json={"message": message},
                 headers={"Content-Type": "application/json"},
                 timeout=30
