@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Story Flow - AI Estimation Engine</title>
     <link rel="icon" href="/favicon.jpg" type="image/x-icon">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/webjars/sockjs-client/sockjs.min.js"></script>
+    <script src="/webjars/stomp-websocket/stomp.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -43,6 +45,11 @@
             background: #10b981;
             border-radius: 50%;
             animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.disconnected {
+            background: #ef4444;
+            animation: none;
         }
         
         @keyframes pulse {
@@ -279,14 +286,14 @@
 <body>
     <div class="header">
         <h1>
-            <span class="status-indicator"></span>
+            <span class="status-indicator" id="statusIndicator"></span>
             Story Flow AI Estimation Engine
         </h1>
     </div>
     
     <div class="chat-container" id="chatContainer">
         <div class="status-bar">
-            <span class="status-text" id="statusText">Waiting for GitHub issues...</span>
+            <span class="status-text" id="statusText">Connecting to estimation engine...</span>
             <span class="issue-counter" id="issueCounter">0 issues processed</span>
         </div>
         
@@ -298,38 +305,40 @@
         <!-- Messages will be dynamically inserted here -->
     </div>
     
-    <script>
+    <script th:inline="javascript">
         const chatContainer = document.getElementById('chatContainer');
         const statusText = document.getElementById('statusText');
+        const statusIndicator = document.getElementById('statusIndicator');
         const issueCounter = document.getElementById('issueCounter');
         const emptyState = document.getElementById('emptyState');
         let processedCount = 0;
+        let stompClient = null;
+        let lastMessageGroup = {};
         
-        // WebSocket connection for live updates
-        let ws;
-        
+        // Connect to WebSocket
         function connectWebSocket() {
-            ws = new WebSocket('ws://localhost:8090/ws/estimation');
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
             
-            ws.onopen = () => {
-                console.log('Connected to estimation engine');
-                statusText.textContent = 'Connected to estimation engine';
-            };
+            // Reduce logging
+            stompClient.debug = () => {};
             
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                handleAgentUpdate(data);
-            };
-            
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                statusText.textContent = 'Connection error - retrying...';
-            };
-            
-            ws.onclose = () => {
+            stompClient.connect({}, function(frame) {
+                console.log('Connected to WebSocket');
+                statusText.textContent = 'Connected - waiting for GitHub issues...';
+                statusIndicator.classList.remove('disconnected');
+                
+                // Subscribe to estimation updates
+                stompClient.subscribe('/topic/estimation', function(message) {
+                    const data = JSON.parse(message.body);
+                    handleAgentUpdate(data);
+                });
+            }, function(error) {
+                console.error('STOMP error:', error);
                 statusText.textContent = 'Disconnected - reconnecting...';
+                statusIndicator.classList.add('disconnected');
                 setTimeout(connectWebSocket, 3000);
-            };
+            });
         }
         
         function handleAgentUpdate(data) {
@@ -337,34 +346,34 @@
                 case 'issue_received':
                     emptyState.style.display = 'none';
                     statusText.textContent = `Processing: ${data.issueTitle}`;
-                    addSystemMessage(`New GitHub issue received: "${data.issueTitle}"`);
+                    addSystemMessage(`GitHub Issue #${data.issueNumber} received: "${data.issueTitle}"`);
                     break;
                     
                 case 'expert_thinking':
-                    addThinkingMessage('expert', 'Expert');
+                    lastMessageGroup.expert = addThinkingMessage('expert', 'Expert');
                     break;
                     
                 case 'expert_processing':
-                    updateLastMessageToProcessing('expert', 'Expert', data.processing);
+                    updateMessageToProcessing(lastMessageGroup.expert, 'expert', 'Expert', data.processing);
                     break;
                     
                 case 'expert_complete':
-                    updateLastMessageToComplete('expert', 'Expert', data.message);
+                    updateMessageToComplete(lastMessageGroup.expert, 'expert', 'Expert', data.message);
                     break;
                     
                 case 'estimator_thinking':
-                    addThinkingMessage('estimator', 'Estimator');
+                    lastMessageGroup.estimator = addThinkingMessage('estimator', 'Estimator');
                     break;
                     
                 case 'estimator_processing':
-                    updateLastMessageToProcessing('estimator', 'Estimator', data.processing);
+                    updateMessageToProcessing(lastMessageGroup.estimator, 'estimator', 'Estimator', data.processing);
                     break;
                     
                 case 'estimation_complete':
-                    updateLastMessageToComplete('estimator', 'Estimator', data.message, data.estimation);
+                    updateMessageToComplete(lastMessageGroup.estimator, 'estimator', 'Estimator', data.message, data.estimation);
                     processedCount++;
                     issueCounter.textContent = `${processedCount} issues processed`;
-                    statusText.textContent = 'Waiting for GitHub issues...';
+                    statusText.textContent = 'Connected - waiting for GitHub issues...';
                     break;
             }
         }
@@ -391,7 +400,7 @@
         function addThinkingMessage(type, name) {
             const messageGroup = document.createElement('div');
             messageGroup.className = `message-group ${type}`;
-            messageGroup.dataset.agent = type;
+            messageGroup.id = `message-${Date.now()}-${type}`;
             
             const avatarInitial = name.charAt(0).toUpperCase();
             
@@ -414,14 +423,15 @@
             
             chatContainer.appendChild(messageGroup);
             chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            return messageGroup.id;
         }
         
-        function updateLastMessageToProcessing(type, name, processing) {
-            const messages = document.querySelectorAll(`.message-group[data-agent="${type}"]`);
-            const lastMessage = messages[messages.length - 1];
-            if (!lastMessage) return;
+        function updateMessageToProcessing(messageId, type, name, processing) {
+            const messageGroup = document.getElementById(messageId);
+            if (!messageGroup) return;
             
-            const messageWrapper = lastMessage.querySelector('.message-wrapper');
+            const messageWrapper = messageGroup.querySelector('.message-wrapper');
             
             messageWrapper.innerHTML = `
                 <div class="message-header">
@@ -439,12 +449,11 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
         
-        function updateLastMessageToComplete(type, name, content, estimation = null) {
-            const messages = document.querySelectorAll(`.message-group[data-agent="${type}"]`);
-            const lastMessage = messages[messages.length - 1];
-            if (!lastMessage) return;
+        function updateMessageToComplete(messageId, type, name, content, estimation = null) {
+            const messageGroup = document.getElementById(messageId);
+            if (!messageGroup) return;
             
-            const messageWrapper = lastMessage.querySelector('.message-wrapper');
+            const messageWrapper = messageGroup.querySelector('.message-wrapper');
             
             messageWrapper.innerHTML = `
                 <div class="message-header">
@@ -480,69 +489,9 @@
             });
         }
         
-        // Simulate agent activity (remove this when WebSocket is connected)
-        function simulateAgentActivity() {
-            setTimeout(() => {
-                handleAgentUpdate({
-                    type: 'issue_received',
-                    issueTitle: 'Add user authentication to API endpoints'
-                });
-                
-                setTimeout(() => {
-                    handleAgentUpdate({type: 'expert_thinking'});
-                    
-                    setTimeout(() => {
-                        handleAgentUpdate({
-                            type: 'expert_processing',
-                            processing: {
-                                header: 'Analyzing Issue Complexity',
-                                content: 'Parsing issue requirements...\nIdentifying affected components...\nChecking API architecture...'
-                            }
-                        });
-                        
-                        setTimeout(() => {
-                            handleAgentUpdate({
-                                type: 'expert_complete',
-                                message: 'This requires OAuth2 implementation, JWT token handling, and middleware updates across all endpoints.'
-                            });
-                            
-                            setTimeout(() => {
-                                handleAgentUpdate({type: 'estimator_thinking'});
-                                
-                                setTimeout(() => {
-                                    handleAgentUpdate({
-                                        type: 'estimator_processing',
-                                        processing: {
-                                            header: 'Calculating Story Points',
-                                            content: 'OAuth2 implementation: High complexity\nJWT handling: Medium complexity\nMiddleware updates: Medium complexity\nTesting requirements: High'
-                                        }
-                                    });
-                                    
-                                    setTimeout(() => {
-                                        handleAgentUpdate({
-                                            type: 'estimation_complete',
-                                            message: 'Based on the authentication requirements, I estimate 8 story points.',
-                                            estimation: {
-                                                points: 8,
-                                                confidence: 85
-                                            }
-                                        });
-                                    }, 2000);
-                                }, 1500);
-                            }, 500);
-                        }, 2000);
-                    }, 1500);
-                }, 1000);
-            }, 2000);
-        }
-        
-        // Initialize
+        // Initialize on page load
         window.addEventListener('load', () => {
-            // Try to connect WebSocket
-            // connectWebSocket();
-            
-            // For demo purposes, simulate activity
-            simulateAgentActivity();
+            connectWebSocket();
         });
     </script>
 </body>
