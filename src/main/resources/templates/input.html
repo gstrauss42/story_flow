@@ -64,6 +64,32 @@
             margin: 0 auto;
         }
         
+        /* Status Bar */
+        .status-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+        
+        .status-text {
+            font-size: 14px;
+            color: #6b7280;
+        }
+        
+        .issue-counter {
+            background: #f3f4f6;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #4b5563;
+        }
+        
         /* Message Groups */
         .message-group {
             display: flex;
@@ -80,10 +106,6 @@
                 opacity: 1;
                 transform: translateY(0);
             }
-        }
-        
-        .message-group.user {
-            flex-direction: row-reverse;
         }
         
         /* Avatar */
@@ -106,11 +128,6 @@
         
         .avatar.estimator {
             background: #8b5cf6;
-            color: white;
-        }
-        
-        .avatar.user {
-            background: #3b82f6;
             color: white;
         }
         
@@ -151,11 +168,6 @@
             border-radius: 18px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             position: relative;
-        }
-        
-        .user .message {
-            background: #3b82f6;
-            color: white;
         }
         
         .thinking-indicator {
@@ -206,75 +218,6 @@
             line-height: 1.6;
         }
         
-        .highlight {
-            background: #fef3c7;
-            padding: 2px 4px;
-            border-radius: 4px;
-            color: #92400e;
-        }
-        
-        /* Input Area */
-        .input-container {
-            background: white;
-            border-top: 1px solid #e5e7eb;
-            padding: 20px 24px;
-            box-shadow: 0 -1px 2px rgba(0,0,0,0.05);
-        }
-        
-        .input-wrapper {
-            max-width: 900px;
-            margin: 0 auto;
-            display: flex;
-            gap: 12px;
-            align-items: flex-end;
-        }
-        
-        .input-field {
-            flex: 1;
-            background: #f3f4f6;
-            border: 1px solid #e5e7eb;
-            border-radius: 24px;
-            padding: 12px 20px;
-            font-size: 15px;
-            font-family: inherit;
-            resize: none;
-            outline: none;
-            transition: all 0.2s;
-            min-height: 48px;
-            max-height: 120px;
-        }
-        
-        .input-field:focus {
-            background: white;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-        
-        .send-button {
-            width: 48px;
-            height: 48px;
-            background: #3b82f6;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-        
-        .send-button:hover {
-            background: #2563eb;
-            transform: scale(1.05);
-        }
-        
-        .send-button:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
-            transform: scale(1);
-        }
-        
         /* Estimation Result */
         .estimation-result {
             background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
@@ -317,6 +260,20 @@
             background: white;
             transition: width 0.5s ease-out;
         }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: #9ca3af;
+        }
+        
+        .empty-state h2 {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #6b7280;
+        }
     </style>
 </head>
 <body>
@@ -328,130 +285,113 @@
     </div>
     
     <div class="chat-container" id="chatContainer">
+        <div class="status-bar">
+            <span class="status-text" id="statusText">Waiting for GitHub issues...</span>
+            <span class="issue-counter" id="issueCounter">0 issues processed</span>
+        </div>
+        
+        <div class="empty-state" id="emptyState">
+            <h2>Agents Standing By</h2>
+            <p>The estimation agents will activate when a GitHub issue is created</p>
+        </div>
+        
         <!-- Messages will be dynamically inserted here -->
-    </div>
-    
-    <div class="input-container">
-        <form id="chatForm" class="input-wrapper">
-            <textarea 
-                id="messageInput"
-                class="input-field" 
-                placeholder="Describe your issue or feature..." 
-                rows="1"
-                required
-            ></textarea>
-            <button type="submit" class="send-button" id="sendButton">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z"/>
-                </svg>
-            </button>
-        </form>
     </div>
     
     <script>
         const chatContainer = document.getElementById('chatContainer');
-        const chatForm = document.getElementById('chatForm');
-        const messageInput = document.getElementById('messageInput');
-        const sendButton = document.getElementById('sendButton');
+        const statusText = document.getElementById('statusText');
+        const issueCounter = document.getElementById('issueCounter');
+        const emptyState = document.getElementById('emptyState');
+        let processedCount = 0;
         
-        // Auto-resize textarea
-        messageInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
-        });
+        // WebSocket connection for live updates
+        let ws;
         
-        // Handle form submission
-        chatForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const message = messageInput.value.trim();
-            if (!message) return;
+        function connectWebSocket() {
+            ws = new WebSocket('ws://localhost:8090/ws/estimation');
             
-            // Add user message
-            addMessage('user', 'You', message);
+            ws.onopen = () => {
+                console.log('Connected to estimation engine');
+                statusText.textContent = 'Connected to estimation engine';
+            };
             
-            // Clear input
-            messageInput.value = '';
-            messageInput.style.height = 'auto';
-            sendButton.disabled = true;
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleAgentUpdate(data);
+            };
             
-            // Show expert thinking
-            const expertThinkingId = addThinkingMessage('expert', 'Expert');
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                statusText.textContent = 'Connection error - retrying...';
+            };
             
-            // Simulate expert processing
-            setTimeout(() => {
-                updateThinkingToProcessing(expertThinkingId, 'expert', 'Expert', {
-                    header: 'Analyzing Issue Complexity',
-                    content: `Parsing: "${message}"\nIdentifying key components...\nChecking for dependencies...\nEvaluating technical complexity...`
-                });
-            }, 500);
-            
-            // Show expert response and estimator thinking
-            setTimeout(() => {
-                const expertResponse = "Based on the requirements, this involves API changes, database modifications, and UI updates.";
-                updateProcessingToMessage(expertThinkingId, 'expert', 'Expert', expertResponse);
-                
-                // Show estimator thinking
-                const estimatorThinkingId = addThinkingMessage('estimator', 'Estimator');
-                
-                setTimeout(() => {
-                    updateThinkingToProcessing(estimatorThinkingId, 'estimator', 'Estimator', {
-                        header: 'Calculating Story Points',
-                        content: 'Expert input received\nFactoring in:\n- API complexity: Medium\n- Database changes: High\n- UI updates: Low\n- Testing requirements: Medium\nApplying Fibonacci sequence...'
-                    });
+            ws.onclose = () => {
+                statusText.textContent = 'Disconnected - reconnecting...';
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+        
+        function handleAgentUpdate(data) {
+            switch(data.type) {
+                case 'issue_received':
+                    emptyState.style.display = 'none';
+                    statusText.textContent = `Processing: ${data.issueTitle}`;
+                    addSystemMessage(`New GitHub issue received: "${data.issueTitle}"`);
+                    break;
                     
-                    // Final estimation
-                    setTimeout(() => {
-                        const estimation = {
-                            points: 8,
-                            confidence: 85,
-                            explanation: "Considering the API changes, database modifications, and UI updates mentioned by the expert, I estimate this as 8 story points."
-                        };
-                        
-                        updateProcessingToMessage(
-                            estimatorThinkingId, 
-                            'estimator', 
-                            'Estimator', 
-                            estimation.explanation,
-                            estimation
-                        );
-                        
-                        sendButton.disabled = false;
-                    }, 2000);
-                }, 1500);
-            }, 2000);
-        });
+                case 'expert_thinking':
+                    addThinkingMessage('expert', 'Expert');
+                    break;
+                    
+                case 'expert_processing':
+                    updateLastMessageToProcessing('expert', 'Expert', data.processing);
+                    break;
+                    
+                case 'expert_complete':
+                    updateLastMessageToComplete('expert', 'Expert', data.message);
+                    break;
+                    
+                case 'estimator_thinking':
+                    addThinkingMessage('estimator', 'Estimator');
+                    break;
+                    
+                case 'estimator_processing':
+                    updateLastMessageToProcessing('estimator', 'Estimator', data.processing);
+                    break;
+                    
+                case 'estimation_complete':
+                    updateLastMessageToComplete('estimator', 'Estimator', data.message, data.estimation);
+                    processedCount++;
+                    issueCounter.textContent = `${processedCount} issues processed`;
+                    statusText.textContent = 'Waiting for GitHub issues...';
+                    break;
+            }
+        }
         
-        function addMessage(type, name, content, estimation = null) {
-            const messageId = Date.now();
+        function addSystemMessage(content) {
             const messageGroup = document.createElement('div');
-            messageGroup.className = `message-group ${type}`;
-            messageGroup.id = `message-${messageId}`;
-            
-            const avatarInitial = name.charAt(0).toUpperCase();
+            messageGroup.className = 'message-group system';
             
             messageGroup.innerHTML = `
-                <div class="avatar ${type}">${avatarInitial}</div>
+                <div class="avatar system">S</div>
                 <div class="message-wrapper">
                     <div class="message-header">
-                        <span class="agent-name">${name}</span>
+                        <span class="agent-name">System</span>
                         <span class="timestamp">${getCurrentTime()}</span>
                     </div>
                     <div class="message">${content}</div>
-                    ${estimation ? createEstimationResult(estimation) : ''}
                 </div>
             `;
             
             chatContainer.appendChild(messageGroup);
             chatContainer.scrollTop = chatContainer.scrollHeight;
-            
-            return messageId;
         }
         
         function addThinkingMessage(type, name) {
-            const messageId = Date.now();
             const messageGroup = document.createElement('div');
             messageGroup.className = `message-group ${type}`;
-            messageGroup.id = `message-${messageId}`;
+            messageGroup.dataset.agent = type;
             
             const avatarInitial = name.charAt(0).toUpperCase();
             
@@ -474,13 +414,14 @@
             
             chatContainer.appendChild(messageGroup);
             chatContainer.scrollTop = chatContainer.scrollHeight;
-            
-            return messageId;
         }
         
-        function updateThinkingToProcessing(messageId, type, name, processing) {
-            const messageGroup = document.getElementById(`message-${messageId}`);
-            const messageWrapper = messageGroup.querySelector('.message-wrapper');
+        function updateLastMessageToProcessing(type, name, processing) {
+            const messages = document.querySelectorAll(`.message-group[data-agent="${type}"]`);
+            const lastMessage = messages[messages.length - 1];
+            if (!lastMessage) return;
+            
+            const messageWrapper = lastMessage.querySelector('.message-wrapper');
             
             messageWrapper.innerHTML = `
                 <div class="message-header">
@@ -498,9 +439,12 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
         
-        function updateProcessingToMessage(messageId, type, name, content, estimation = null) {
-            const messageGroup = document.getElementById(`message-${messageId}`);
-            const messageWrapper = messageGroup.querySelector('.message-wrapper');
+        function updateLastMessageToComplete(type, name, content, estimation = null) {
+            const messages = document.querySelectorAll(`.message-group[data-agent="${type}"]`);
+            const lastMessage = messages[messages.length - 1];
+            if (!lastMessage) return;
+            
+            const messageWrapper = lastMessage.querySelector('.message-wrapper');
             
             messageWrapper.innerHTML = `
                 <div class="message-header">
@@ -536,18 +480,69 @@
             });
         }
         
-        // Load conversation history if exists
-        window.addEventListener('load', () => {
-            // This would be populated from your Thymeleaf model
-            const conversation = /*[[${conversation}]]*/ [];
-            if (conversation && conversation.length > 0) {
-                conversation.forEach(msg => {
-                    const type = msg.from === 'me' ? 'user' : msg.from;
-                    const name = msg.from === 'me' ? 'You' : 
-                                 msg.from === 'expert' ? 'Expert' : 'Estimator';
-                    addMessage(type, name, msg.text);
+        // Simulate agent activity (remove this when WebSocket is connected)
+        function simulateAgentActivity() {
+            setTimeout(() => {
+                handleAgentUpdate({
+                    type: 'issue_received',
+                    issueTitle: 'Add user authentication to API endpoints'
                 });
-            }
+                
+                setTimeout(() => {
+                    handleAgentUpdate({type: 'expert_thinking'});
+                    
+                    setTimeout(() => {
+                        handleAgentUpdate({
+                            type: 'expert_processing',
+                            processing: {
+                                header: 'Analyzing Issue Complexity',
+                                content: 'Parsing issue requirements...\nIdentifying affected components...\nChecking API architecture...'
+                            }
+                        });
+                        
+                        setTimeout(() => {
+                            handleAgentUpdate({
+                                type: 'expert_complete',
+                                message: 'This requires OAuth2 implementation, JWT token handling, and middleware updates across all endpoints.'
+                            });
+                            
+                            setTimeout(() => {
+                                handleAgentUpdate({type: 'estimator_thinking'});
+                                
+                                setTimeout(() => {
+                                    handleAgentUpdate({
+                                        type: 'estimator_processing',
+                                        processing: {
+                                            header: 'Calculating Story Points',
+                                            content: 'OAuth2 implementation: High complexity\nJWT handling: Medium complexity\nMiddleware updates: Medium complexity\nTesting requirements: High'
+                                        }
+                                    });
+                                    
+                                    setTimeout(() => {
+                                        handleAgentUpdate({
+                                            type: 'estimation_complete',
+                                            message: 'Based on the authentication requirements, I estimate 8 story points.',
+                                            estimation: {
+                                                points: 8,
+                                                confidence: 85
+                                            }
+                                        });
+                                    }, 2000);
+                                }, 1500);
+                            }, 500);
+                        }, 2000);
+                    }, 1500);
+                }, 1000);
+            }, 2000);
+        }
+        
+        // Initialize
+        window.addEventListener('load', () => {
+            // Try to connect WebSocket
+            // connectWebSocket();
+            
+            // For demo purposes, simulate activity
+            simulateAgentActivity();
         });
     </script>
 </body>
