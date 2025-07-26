@@ -65,8 +65,8 @@
             padding: 24px;
             display: flex;
             flex-direction: column;
-            gap: 16px;
-            max-width: 900px;
+            gap: 20px;
+            max-width: 1200px;
             width: 100%;
             margin: 0 auto;
         }
@@ -80,7 +80,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 24px;
+            margin-bottom: 12px;
         }
         
         .status-text {
@@ -90,8 +90,8 @@
         
         .issue-counter {
             background: #f3f4f6;
-            padding: 4px 12px;
-            border-radius: 16px;
+            padding: 6px 16px;
+            border-radius: 20px;
             font-size: 13px;
             font-weight: 500;
             color: #4b5563;
@@ -102,6 +102,7 @@
             display: flex;
             gap: 12px;
             animation: slideIn 0.3s ease-out;
+            align-items: flex-start;
         }
         
         @keyframes slideIn {
@@ -126,57 +127,133 @@
             font-weight: 600;
             font-size: 14px;
             flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         .avatar.expert {
-            background: #6366f1;
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
             color: white;
         }
         
         .avatar.estimator {
-            background: #8b5cf6;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
             color: white;
         }
         
         .avatar.system {
-            background: #6b7280;
+            background: linear-gradient(135deg, #6b7280, #4b5563);
             color: white;
         }
         
         /* Messages */
         .message-wrapper {
-            max-width: 70%;
+            flex: 1;
+            max-width: 85%;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 6px;
         }
         
         .message-header {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 0 12px;
+            padding: 0 4px;
         }
         
         .agent-name {
             font-weight: 600;
-            font-size: 13px;
-            color: #4b5563;
+            font-size: 14px;
+            color: #1f2937;
         }
         
         .timestamp {
-            font-size: 11px;
+            font-size: 12px;
             color: #9ca3af;
         }
         
         .message {
             background: white;
-            padding: 12px 16px;
-            border-radius: 18px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             position: relative;
+            line-height: 1.6;
+            color: #374151;
         }
         
+        /* Formatted Message Content */
+        .message-content {
+            font-size: 14px;
+        }
+        
+        .message-content p {
+            margin-bottom: 12px;
+        }
+        
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* Task Lists */
+        .task-list {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+        }
+        
+        .task-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .task-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        
+        .task-number {
+            font-weight: 600;
+            color: #6366f1;
+            margin-right: 8px;
+        }
+        
+        .task-title {
+            font-weight: 500;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+        
+        .task-description {
+            font-size: 13px;
+            color: #6b7280;
+            margin-left: 24px;
+            line-height: 1.5;
+        }
+        
+        .task-dependency {
+            font-size: 12px;
+            color: #ef4444;
+            margin-left: 24px;
+            margin-top: 4px;
+            font-style: italic;
+        }
+        
+        /* Code blocks */
+        .code-block {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+        
+        /* Thinking indicator */
         .thinking-indicator {
             display: flex;
             gap: 4px;
@@ -201,27 +278,26 @@
         
         /* Processing Block */
         .processing-block {
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 12px;
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 16px;
             margin-top: 8px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            color: #4b5563;
         }
         
         .processing-header {
             font-weight: 600;
-            color: #6b7280;
+            color: #0369a1;
             margin-bottom: 8px;
-            font-family: 'Inter', sans-serif;
             text-transform: uppercase;
-            font-size: 11px;
+            font-size: 12px;
             letter-spacing: 0.5px;
         }
         
         .processing-content {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #0c4a6e;
             line-height: 1.6;
         }
         
@@ -229,36 +305,39 @@
         .estimation-result {
             background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
             color: white;
-            padding: 20px;
+            padding: 24px;
             border-radius: 16px;
-            margin-top: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-top: 16px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
         }
         
         .estimation-header {
             font-size: 14px;
             opacity: 0.9;
             margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
         .story-points {
-            font-size: 36px;
+            font-size: 42px;
             font-weight: 700;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         .confidence {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 12px;
             font-size: 14px;
         }
         
         .confidence-bar {
-            width: 100px;
-            height: 6px;
+            width: 120px;
+            height: 8px;
             background: rgba(255,255,255,0.3);
-            border-radius: 3px;
+            border-radius: 4px;
             overflow: hidden;
         }
         
@@ -271,15 +350,34 @@
         /* Empty State */
         .empty-state {
             text-align: center;
-            padding: 60px;
+            padding: 80px 20px;
             color: #9ca3af;
         }
         
         .empty-state h2 {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 500;
             margin-bottom: 8px;
             color: #6b7280;
+        }
+        
+        /* Scrollbar styling */
+        .chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .chat-container::-webkit-scrollbar-track {
+            background: #f3f4f6;
+            border-radius: 4px;
+        }
+        
+        .chat-container::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 4px;
+        }
+        
+        .chat-container::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
         }
     </style>
 </head>
@@ -301,8 +399,6 @@
             <h2>Agents Standing By</h2>
             <p>The estimation agents will activate when a GitHub issue is created</p>
         </div>
-        
-        <!-- Messages will be dynamically inserted here -->
     </div>
     
     <script th:inline="javascript">
@@ -389,7 +485,9 @@
                         <span class="agent-name">System</span>
                         <span class="timestamp">${getCurrentTime()}</span>
                     </div>
-                    <div class="message">${content}</div>
+                    <div class="message">
+                        <div class="message-content">${content}</div>
+                    </div>
                 </div>
             `;
             
@@ -455,16 +553,86 @@
             
             const messageWrapper = messageGroup.querySelector('.message-wrapper');
             
+            const formattedContent = formatAgentMessage(content);
+            
             messageWrapper.innerHTML = `
                 <div class="message-header">
                     <span class="agent-name">${name}</span>
                     <span class="timestamp">${getCurrentTime()}</span>
                 </div>
-                <div class="message">${content}</div>
+                <div class="message">
+                    <div class="message-content">${formattedContent}</div>
+                </div>
                 ${estimation ? createEstimationResult(estimation) : ''}
             `;
             
             chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        function formatAgentMessage(content) {
+            // Parse task lists with ### markers
+            let formatted = content;
+            
+            // Replace ### with task numbers and format task blocks
+            const taskRegex = /###\s*(\d+)\.\s*([^#\n]+)([\s\S]*?)(?=###|\n\n|$)/g;
+            const tasks = [];
+            let match;
+            
+            while ((match = taskRegex.exec(content)) !== null) {
+                const taskNumber = match[1];
+                const taskTitle = match[2].trim();
+                const taskContent = match[3].trim();
+                
+                // Extract task details and dependencies
+                const taskParts = taskContent.split('**Dependency**');
+                const taskDescription = taskParts[0].replace(/\*\*/g, '').replace(/\*/g, '').trim();
+                const dependency = taskParts[1] ? taskParts[1].replace(/\*\*/g, '').replace(/\*/g, '').trim() : '';
+                
+                tasks.push({
+                    number: taskNumber,
+                    title: taskTitle,
+                    description: taskDescription,
+                    dependency: dependency
+                });
+            }
+            
+            // If we found tasks, format them nicely
+            if (tasks.length > 0) {
+                // Get the intro text before the first task
+                const introMatch = content.match(/^([\s\S]*?)(?=###)/);
+                const intro = introMatch ? `<p>${introMatch[1].trim()}</p>` : '';
+                
+                let taskListHtml = '<div class="task-list">';
+                tasks.forEach(task => {
+                    taskListHtml += `
+                        <div class="task-item">
+                            <div class="task-title">
+                                <span class="task-number">${task.number}.</span>
+                                ${task.title}
+                            </div>
+                            ${task.description ? `<div class="task-description">${task.description}</div>` : ''}
+                            ${task.dependency ? `<div class="task-dependency">⚠️ Dependency: ${task.dependency}</div>` : ''}
+                        </div>
+                    `;
+                });
+                taskListHtml += '</div>';
+                
+                formatted = intro + taskListHtml;
+            } else {
+                // For non-task content, just format paragraphs
+                formatted = content
+                    .split('\n\n')
+                    .map(paragraph => `<p>${paragraph.trim()}</p>`)
+                    .join('');
+            }
+            
+            // Handle remaining markdown-style formatting
+            formatted = formatted
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>');
+            
+            return formatted;
         }
         
         function createEstimationResult(estimation) {
