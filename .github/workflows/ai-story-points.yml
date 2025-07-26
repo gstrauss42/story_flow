@@ -1,0 +1,197 @@
+name: AI Story Point Estimation
+
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created]
+
+jobs:
+  estimate-story-points:
+    runs-on: ubuntu-latest
+    # Only run on issues (not PRs) and skip if already has story points
+    if: |
+      (github.event_name == 'issues' && !contains(join(github.event.issue.labels.*.name, ' '), 'sp-')) ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/estimate'))
+    
+    steps:
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Estimate Story Points
+      id: estimate
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        AI_API_URL: ${{ secrets.AI_API_URL }}
+        AI_API_KEY: ${{ secrets.AI_API_KEY }}
+      run: |
+        pip install requests
+        
+        python << 'EOF'
+        import os
+        import json
+        import requests
+        
+        # Get issue details
+        issue_number = ${{ github.event.issue.number }}
+        issue_title = """${{ github.event.issue.title }}"""
+        issue_body = """${{ github.event.issue.body }}"""
+        
+        # Call your AI API
+        headers = {
+            "Authorization": f"Bearer {os.environ.get('AI_API_KEY', '')}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "query": f"""
+            Analyze this GitHub issue and estimate story points:
+            
+            Title: {issue_title}
+            Description: {issue_body}
+            
+            Provide:
+            1. Story points (use Fibonacci: 1, 2, 3, 5, 8, 13, 21)
+            2. Brief explanation of the estimate
+            3. Key factors considered
+            
+            Respond with a JSON object containing: story_points, explanation, factors
+            """,
+            "user_id": "github-action",
+            "priority": "high"
+        }
+        
+        try:
+            # Call your deployed AI API
+            response = requests.post(
+                f"{os.environ['AI_API_URL']}/query",
+                json=payload,
+                headers=headers,
+                timeout=30
+            )
+            response.raise_for_status()
+            
+            # Extract story points from response
+            ai_response = response.json()
+            response_text = ai_response.get('response', '')
+            
+            # Simple extraction - adjust based on your AI's response format
+            import re
+            points_match = re.search(r'"story_points":\s*(\d+)', response_text)
+            if not points_match:
+                points_match = re.search(r'(\d+)\s*story\s*points?', response_text, re.IGNORECASE)
+            
+            story_points = int(points_match.group(1)) if points_match else 5
+            
+            # Ensure Fibonacci
+            fibonacci = [1, 2, 3, 5, 8, 13, 21]
+            story_points = min(fibonacci, key=lambda x: abs(x - story_points))
+            
+            # Save results
+            result = {
+                "story_points": story_points,
+                "explanation": response_text[:1000],  # Truncate long responses
+                "confidence": ai_response.get('confidence_score', 0.7)
+            }
+            
+        except Exception as e:
+            print(f"Error calling AI API: {e}")
+            # Fallback estimation
+            result = {
+                "story_points": 5,
+                "explanation": "Could not reach AI API. Using default estimate.",
+                "confidence": 0.3
+            }
+        
+        # Output for next steps
+        print(f"STORY_POINTS={result['story_points']}")
+        with open('result.json', 'w') as f:
+            json.dump(result, f)
+        EOF
+        
+        # Set output
+        echo "points=$(grep STORY_POINTS= <<< "${{ steps.estimate.outputs.stdout }}" | cut -d= -f2)" >> $GITHUB_OUTPUT
+    
+    - name: Update Issue Labels
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs');
+          const result = JSON.parse(fs.readFileSync('result.json', 'utf8'));
+          
+          // Remove any existing story point labels
+          const currentLabels = await github.rest.issues.listLabelsOnIssue({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number
+          });
+          
+          for (const label of currentLabels.data) {
+            if (label.name.startsWith('sp-')) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: label.name
+              });
+            }
+          }
+          
+          // Create label if it doesn't exist
+          const labelName = `sp-${result.story_points}`;
+          try {
+            await github.rest.issues.getLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: labelName
+            });
+          } catch (error) {
+            // Label doesn't exist, create it
+            const colors = {
+              'sp-1': 'c5def5',
+              'sp-2': 'c5def5',
+              'sp-3': '1d76db',
+              'sp-5': '1d76db',
+              'sp-8': 'f9d0c4',
+              'sp-13': 'e99695',
+              'sp-21': 'd93f0b'
+            };
+            
+            await github.rest.issues.createLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: labelName,
+              color: colors[labelName] || 'cccccc',
+              description: `${result.story_points} story points`
+            });
+          }
+          
+          // Add the label
+          await github.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            labels: [labelName]
+          });
+          
+          // Add explanation comment
+          const comment = `## 🎯 AI Story Point Estimation
+          
+          **Story Points:** \`${result.story_points}\`
+          **Confidence:** ${(result.confidence * 100).toFixed(0)}%
+          
+          ### 📊 Analysis:
+          ${result.explanation}
+          
+          ---
+          *This is an automated estimate. Type \`/estimate\` in a comment to re-analyze.*`;
+          
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: comment
+          });
