@@ -7,7 +7,7 @@ import dev.langchain4j.service.AiServices;
 
 
 @Service("securityAgent")
-public class DefaultSecurityAgent extends DefaultBaseAgent implements StoryPointAgent {
+public class DefaultSecurityAgent extends DefaultBaseAgent implements SecurityAgent {
 
     public DefaultSecurityAgent() {
         System.out.println("Security agent initialized.");
@@ -16,23 +16,13 @@ public class DefaultSecurityAgent extends DefaultBaseAgent implements StoryPoint
     @Override
     public String communicate(String message) {
         ChatModel chatModel = getChatModel();
-        StoryPointExpert storyPointExpert = AiServices.create(StoryPointExpert.class, chatModel);
+        SecurityExpert securityExpert = AiServices.create(SecurityExpert.class, chatModel);
         System.out.println("Requesting security model with message: " + message);
-        return storyPointExpert.chat(message);
+        return securityExpert.chat(message);
 //        return "A mock response from the friend model";
 
     }
 
-    @Override
-    public String communicateWithExpert(String userMessage, String expertRecommendation){
-        ChatModel chatModel = getChatModel();
-        String combinedMessage = "Expert recommends: " + expertRecommendation + "\nUser asked: " + userMessage;
-        System.out.println(combinedMessage);
-
-        StoryPointExpert storyPointExpert = AiServices.create(StoryPointExpert.class, chatModel);
-        return storyPointExpert.chat(combinedMessage);
-
-    }
 
 
 }
