@@ -7,7 +7,7 @@ import dev.langchain4j.service.AiServices;
 
 
 @Service("securityAgent")
-public class DefaultSecurityAgent extends DefaultBaseAgent implements AgentOne{
+public class DefaultSecurityAgent extends DefaultBaseAgent implements StoryPointAgent {
 
     public DefaultSecurityAgent() {
         System.out.println("Security agent initialized.");

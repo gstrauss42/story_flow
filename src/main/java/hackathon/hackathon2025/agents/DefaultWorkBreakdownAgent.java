@@ -7,13 +7,13 @@ import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
 
 
-@Service("agentTwo")
-public class DefaultAgentTwo extends DefaultBaseAgent implements AgentTwo {
+@Service("workBreakdownAgent")
+public class DefaultWorkBreakdownAgent extends DefaultBaseAgent implements WorkBreakdownAgent {
 
     @Value("${openai.apikey}")
     private String openAiApiKey;
 
-    public DefaultAgentTwo() {
+    public DefaultWorkBreakdownAgent() {
         System.out.println("Agent Two initialized.");
     }
 

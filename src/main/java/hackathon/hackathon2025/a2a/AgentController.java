@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.SessionAttribute;
 
-import hackathon.hackathon2025.agents.AgentOne;
-import hackathon.hackathon2025.agents.AgentTwo;
+import hackathon.hackathon2025.agents.StoryPointAgent;
+import hackathon.hackathon2025.agents.WorkBreakdownAgent;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpSession;
 
@@ -28,18 +28,18 @@ import jakarta.servlet.http.HttpSession;
 @RequestMapping("/agents")
 public class AgentController {
 
-    @Resource(name = "agentOne")
-    private AgentOne agentOne;
+    @Resource(name = "storyPointAgent")
+    private StoryPointAgent storyPointAgent;
     
-    @Resource(name = "agentTwo")
-    private AgentTwo agentTwo;
+    @Resource(name = "workBreakdownAgent")
+    private WorkBreakdownAgent workBreakdownAgent;
     
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
-    public AgentController(AgentOne agentOne, AgentTwo agentTwo) {
-        this.agentOne = agentOne;
-        this.agentTwo = agentTwo;
+    public AgentController(StoryPointAgent storyPointAgent, WorkBreakdownAgent workBreakdownAgent) {
+        this.storyPointAgent = storyPointAgent;
+        this.workBreakdownAgent = workBreakdownAgent;
     }
 
     @GetMapping("/input")
@@ -80,13 +80,13 @@ public class AgentController {
         ));
         
         // Get expert analysis
-        String expertReply = agentTwo.communicate(message);
+        String workBreakdownAgentReply = workBreakdownAgent.communicate(message);
         
         sleep(1500);
         
         // Broadcast: Expert complete
         broadcast("expert_complete", Map.of(
-            "message", expertReply
+            "message", workBreakdownAgentReply
         ));
         
         sleep(500);
@@ -105,24 +105,24 @@ public class AgentController {
         ));
         
         // Get estimation
-        String estimatorReply = agentOne.communicateWithExpert(message, expertReply);
-        int storyPoints = extractStoryPoints(estimatorReply);
-        
+        String storyPointAgentReply = storyPointAgent.communicateWithExpert(message, workBreakdownAgentReply);
+        int storyPoints = extractStoryPoints(storyPointAgentReply);
+
         sleep(1500);
         
         // Broadcast: Estimation complete
         broadcast("estimation_complete", Map.of(
-            "message", estimatorReply,
+            "message", storyPointAgentReply,
             "estimation", Map.of(
                 "points", storyPoints,
-                "confidence", calculateConfidence(estimatorReply)
+                "confidence", calculateConfidence(storyPointAgentReply)
             )
         ));
 
         // Return response to GitHub Action
         Map<String, Object> response = new HashMap<>();
         response.put("story_points", storyPoints);
-        response.put("explanation", estimatorReply);
+        response.put("explanation", storyPointAgentReply);
         response.put("confidence", 0.8);
 
         return ResponseEntity.ok(response);
@@ -191,7 +191,7 @@ public class AgentController {
         return Math.max(50, Math.min(95, confidence));
     }
 
-    @PostMapping("/input")
+    @PostMapping("/test")
     public String handleInput(
             @RequestParam String from,
             @RequestParam String message,
@@ -215,12 +215,12 @@ public class AgentController {
 
             Map<String, String> agentMsg = new HashMap<>();
             if ("estimator".equalsIgnoreCase(from)) {
-                String expertReply = agentTwo.communicate(message);
-                String estimatorReply = agentOne.communicateWithExpert(message, expertReply);
+                String expertReply = workBreakdownAgent.communicate(message);
+                String estimatorReply = storyPointAgent.communicateWithExpert(message, expertReply);
                 agentMsg.put("from", "estimator");
                 agentMsg.put("text", estimatorReply);
             } else {
-                String expertReply = agentTwo.communicate(message);
+                String expertReply = workBreakdownAgent.communicate(message);
                 agentMsg.put("from", "expert");
                 agentMsg.put("text", expertReply);
             }
@@ -231,15 +231,15 @@ public class AgentController {
             model.addAttribute("conversation", conversation);
         }
 
-        return "input";
+        return "test";
     }
 
     @GetMapping("/a2a")
     public String agentToAgent(@RequestParam String from, @RequestParam String message) {
         if ("one".equalsIgnoreCase(from)) {
-            return agentTwo.communicate(message);
+            return workBreakdownAgent.communicate(message);
         } else {
-            return agentOne.communicate(message);
+            return storyPointAgent.communicate(message);
         }
     }
 }

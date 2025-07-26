@@ -6,10 +6,10 @@ import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
 
 
-@Service("agentOne")
-public class DefaultAgentOne extends DefaultBaseAgent implements AgentOne{
+@Service("storyPointAgent")
+public class DefaultStoryPointAgent extends DefaultBaseAgent implements StoryPointAgent {
 
-    public DefaultAgentOne() {
+    public DefaultStoryPointAgent() {
         System.out.println("Agent One initialized.");
     }
 

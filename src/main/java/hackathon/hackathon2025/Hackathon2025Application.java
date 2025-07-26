@@ -5,14 +5,14 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-import hackathon.hackathon2025.agents.DefaultAgentOne;
+import hackathon.hackathon2025.agents.DefaultStoryPointAgent;
 
 
 @SpringBootApplication
 public class Hackathon2025Application implements CommandLineRunner {
 
     @Autowired
-    private DefaultAgentOne defaultAgentOne;
+    private DefaultStoryPointAgent storyPointAgent;
 
     public static void main(String[] args) {
         SpringApplication.run(Hackathon2025Application.class, args);
