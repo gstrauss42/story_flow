@@ -71,7 +71,13 @@ public class AgentController {
         sleep(500);
 
         String securityAgentReply = securityAgent.communicate(message);
-        if(Boolean.valueOf(securityAgentReply)) {
+        boolean securityIssueFound = false;
+        try {
+            securityIssueFound = Boolean.parseBoolean(securityAgentReply);
+        } catch (Exception e) {
+
+        }
+        if(securityIssueFound) {
             broadcast("security_expert", Map.of(
                     "processing", Map.of(
                             "header", "security issue found",
