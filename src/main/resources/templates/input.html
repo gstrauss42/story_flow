@@ -55,7 +55,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>Agent Chatbot</h1>
+    <h1>Story Flow</h1>
     <div class="chatbox">
         <div th:each="msg : ${conversation}">
             <div class="message"
@@ -69,8 +69,8 @@
     </div>
     <form action="/agents/input" method="post" style="display: flex; flex-direction: column; gap: 10px;">
         <select name="from" required style="width: 100%;">
-            <option value="estimator">estimator</option>
-            <option value="expert">Expert</option>
+            <option value="estimator">Story point estimator</option>
+            <option value="expert">Expert </option>
         </select>
         <textarea name="message" required placeholder="Type your message..." class="chat-input"></textarea>
         <button type="submit" style="width: 100%;">Send</button>

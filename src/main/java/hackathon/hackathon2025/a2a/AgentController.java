@@ -48,33 +48,40 @@ public class AgentController {
             @SessionAttribute(value = "conversation", required = false) List<Map<String, String>> conversation,
             HttpSession session) {
 
-        if (conversation == null || "clear".equals(message)) {
+        if (conversation == null ) {
             conversation = new ArrayList<>();
         }
 
-        // Add user message
-        Map<String, String> userMsg = new HashMap<>();
-        userMsg.put("from", from);
-        userMsg.put("text", message);
-        conversation.add(userMsg);
-
-        Map<String, String> agentMsg = new HashMap<>();
-        if ("estimator".equalsIgnoreCase(from)) {
-            String expertReply = agentTwo.communicate(message);
-            String estimatorReply = agentOne.communicateWithExpert(message, expertReply);
-            agentMsg.put("from", "estimator");
-            agentMsg.put("text", estimatorReply);
+        if("clear".equals(message)) {
+            conversation = new ArrayList<>();
+            session.setAttribute("conversation", conversation);
         } else {
-            String expertReply = agentTwo.communicate(message);
-            agentMsg.put("from", "expert");
-            agentMsg.put("text", expertReply);
+            // Add user message
+            Map<String, String> userMsg = new HashMap<>();
+            userMsg.put("from", from);
+            userMsg.put("text", message);
+            conversation.add(userMsg);
+
+            Map<String, String> agentMsg = new HashMap<>();
+            if ("estimator".equalsIgnoreCase(from)) {
+                String expertReply = agentTwo.communicate(message);
+                String estimatorReply = agentOne.communicateWithExpert(message, expertReply);
+                agentMsg.put("from", "estimator");
+                agentMsg.put("text", estimatorReply);
+            } else {
+                String expertReply = agentTwo.communicate(message);
+                agentMsg.put("from", "expert");
+                agentMsg.put("text", expertReply);
+            }
+            conversation.add(agentMsg);
+
+            // Store conversation in session
+            session.setAttribute("conversation", conversation);
+
+            model.addAttribute("conversation", conversation);
+
         }
-        conversation.add(agentMsg);
 
-        // Store conversation in session
-        session.setAttribute("conversation", conversation);
-
-        model.addAttribute("conversation", conversation);
 
         return "input";
     }
