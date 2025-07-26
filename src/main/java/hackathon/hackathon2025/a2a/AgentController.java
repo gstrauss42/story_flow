@@ -5,11 +5,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,6 +42,38 @@ public class AgentController {
     @GetMapping("/input")
     public String showInputPage() {
         return "input";
+    }
+
+    @PostMapping("/estimate")
+    public ResponseEntity<Map<String, Object>> estimateStoryPoints(
+            @RequestBody Map<String, String> request) {
+
+        String message = request.get("message");
+
+        // Get estimation from your agents
+        String expertReply = agentTwo.communicate(message);
+        String estimatorReply = agentOne.communicateWithExpert(message, expertReply);
+
+        // Parse story points from response
+        int storyPoints = extractStoryPoints(estimatorReply);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("story_points", storyPoints);
+        response.put("explanation", estimatorReply);
+        response.put("confidence", 0.8);
+
+        return ResponseEntity.ok(response);
+    }
+
+    private int extractStoryPoints(String text) {
+        // Extract number from text
+        Pattern pattern = Pattern.compile("(\\d+)\\s*(?:story\\s*)?points?",
+                Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(text);
+        if (matcher.find()) {
+            return Integer.parseInt(matcher.group(1));
+        }
+        return 5; // default
     }
 
     @PostMapping("/input")
